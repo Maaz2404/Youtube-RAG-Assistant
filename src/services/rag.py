@@ -9,6 +9,10 @@ from dotenv import load_dotenv
 import os
 from pinecone import Pinecone
 from langchain_pinecone import PineconeVectorStore
+import google.generativeai as genai
+
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
 
 
 load_dotenv()
@@ -16,7 +20,7 @@ load_dotenv()
 # ✅ Gemini Embedding Model (768-dim)
 embedding_model = GoogleGenerativeAIEmbeddings(
     model="models/embedding-001",
-    api_key=os.getenv("GEMINI_API_KEY")
+    
 )
 
 # ✅ Prompt Template
@@ -34,7 +38,6 @@ prompt = ChatPromptTemplate.from_template(
 # ✅ Gemini LLM (Flash 1.5)
 llm = GoogleGenerativeAI(
     model="gemini-1.5-flash",
-    api_key=os.getenv("GEMINI_API_KEY"),
 )
 
 # ✅ Main RAG function

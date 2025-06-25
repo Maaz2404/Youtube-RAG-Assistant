@@ -8,3 +8,4 @@ youtube-transcript-api
 langchain_community
 pinecone
 langchain_pinecone
+google-generativeai
