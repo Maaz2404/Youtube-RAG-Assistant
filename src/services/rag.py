@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 import os
 from pinecone import Pinecone
 from langchain_pinecone import PineconeVectorStore
-import google.generativeai as genai
+
 
 os.environ["GEMINI_API_KEY"] = os.getenv("GEMINI_API_KEY")
 
