@@ -4,7 +4,6 @@ uvicorn
 pydantic
 langchain-google-genai
 python-dotenv
-openai-whisper
 youtube-transcript-api
 langchain_community
 sentence_transformers
