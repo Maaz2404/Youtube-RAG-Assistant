@@ -6,7 +6,5 @@ langchain-google-genai
 python-dotenv
 youtube-transcript-api
 langchain_community
-sentence_transformers
-langchain_huggingface
 pinecone
 langchain_pinecone
