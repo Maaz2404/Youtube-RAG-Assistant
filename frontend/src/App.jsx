@@ -36,7 +36,7 @@ const App = () => {
       console.log("Sending query to llm")
       console.log("Sending video_id:", videoId);
       console.log("Sending query:", query);
-      const response = await axios.post("https://youtube-rag-assistant.onrender.com/ask", {
+      const response = await axios.post("https://localhost:8000/ask", {
         video_id : videoId,
         query : query
       });

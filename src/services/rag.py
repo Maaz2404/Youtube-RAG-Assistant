@@ -17,9 +17,11 @@ load_dotenv()
 
 # ✅ Gemini Embedding Model (768-dim)
 embedding_model = GoogleGenerativeAIEmbeddings(
-    model="models/gemini-embedding-exp-03-07",
+    model="models/embedding-001",
     api_key=os.getenv("GEMINI_API_KEY")
 )
+test_embed = embedding_model.embed_query("Hello, world!")
+print(len(test_embed))
 
 # ✅ Prompt Template
 prompt = ChatPromptTemplate.from_template(
@@ -51,6 +53,8 @@ def run_rag_pipeline(video_id: str, query: str) -> str:
     if not already_indexed:
         print(f"Indexing transcript for video ID: {video_id}")
         full_transcript = get_transcript(video_id)
+        if not full_transcript:
+            return "Transcript not available for this video."
         from langchain_core.documents import Document
         docs = [Document(page_content=full_transcript)]
 
@@ -71,7 +75,7 @@ def run_rag_pipeline(video_id: str, query: str) -> str:
         index_name=index_name,
         namespace=video_id,
     )
-    normal_retriever = vectorstore.as_retriever(k=4)
+    normal_retriever = vectorstore.as_retriever(search_type='mmr',k=4)
         
     summarize_retriever = MultiQueryRetriever.from_llm(
         retriever=vectorstore.as_retriever(search_type="mmr", k=10),
@@ -80,7 +84,7 @@ def run_rag_pipeline(video_id: str, query: str) -> str:
 
     def retrieve_context(inputs):
         q = inputs["query"]
-        if any(kw in q.lower() for kw in ["summarize", "overview", "summary"]):
+        if any(kw in q.lower() for kw in ["summarize", "overview", "summary","all", "complete"]):
             relevant_docs = summarize_retriever.invoke(q)
             return " ".join(doc.page_content for doc in relevant_docs)
         relevant_docs = normal_retriever.invoke(q)
