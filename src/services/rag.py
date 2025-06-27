@@ -53,8 +53,8 @@ def run_rag_pipeline(video_id: str, query: str) -> str:
     if not already_indexed:
         print(f"Indexing transcript for video ID: {video_id}")
         full_transcript = get_transcript(video_id)
-        if not full_transcript:
-            return "Transcript not available for this video."
+        # if not full_transcript:
+        #     return "Transcript not available for this video."
         from langchain_core.documents import Document
         docs = [Document(page_content=full_transcript)]
 
