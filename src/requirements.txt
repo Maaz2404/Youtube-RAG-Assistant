@@ -8,3 +8,8 @@ youtube-transcript-api
 langchain_community
 pinecone
 langchain_pinecone
+sqlalchemy
+psycopg2-binary
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart

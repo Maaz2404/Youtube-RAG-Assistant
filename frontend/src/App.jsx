@@ -9,26 +9,21 @@ const App = () => {
 
   useEffect(() => {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (tabs[0]?.id) {
-      chrome.tabs.sendMessage(
-        tabs[0].id,
-        { type: "GET_VIDEO_ID" },
-        (response) => {
-          if (chrome.runtime.lastError) {
-            console.error("❌ Error:", chrome.runtime.lastError.message);
-            return;
-          }
-          if (response?.videoId) {
-            console.log("✅ Got video ID from content script:", response.videoId);
-            setVideoId(response.videoId);
-          } else {
-            console.warn("⚠️ No video ID returned.");
-          }
-        }
-      );
-    }
+    const tabId = tabs[0]?.id;
+    if (!tabId) return;
+
+    chrome.tabs.sendMessage(tabId, { type: "GET_VIDEO_ID" }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error("Msg error:", chrome.runtime.lastError.message);
+      } else {
+        console.log("Popup received videoId:", response.videoId);
+        setVideoId(response.videoId);
+      }
+    });
   });
 }, []);
+
+
 
 
   const handleSearch = async () => {
@@ -36,7 +31,7 @@ const App = () => {
       console.log("Sending query to llm")
       console.log("Sending video_id:", videoId);
       console.log("Sending query:", query);
-      const response = await axios.post("https://youtube-rag-assistant.onrender.com/ask", {
+      const response = await axios.post("http://127.0.0.1:8000/ask", {
         video_id : videoId,
         query : query
       });
@@ -60,13 +55,13 @@ const App = () => {
         />
         <div className="flex w-full gap-2 mt-2">
           <button
-            className="w-1/2 h-4 text-white bg-red-600 rounded-l py-2"
+            className="flex-1 py-2 text-white bg-red-600 rounded-l transition-colors duration-150 hover:bg-red-700 active:bg-red-800 cursor-pointer"
             onClick={handleSearch}
           >
             Ask
           </button>
           <button
-            className="w-1/2 h-4 text-white bg-red-600 rounded-l py-2"
+            className="flex-1 py-2 text-white bg-gray-500 rounded-r transition-colors duration-150 hover:bg-gray-600 active:bg-gray-700 cursor-pointer"
             onClick={() => setQuery("")}
           >
             Clear
@@ -74,11 +69,11 @@ const App = () => {
         </div>
       </div>
       
-    {answer && (
-    <div className="mt-4 bg-gray-100 p-2 rounded">
-      <p className="text-gray-700">{answer}</p>
-    </div>
-   )}
+      {answer && (
+        <div className="mt-4 bg-gray-100 p-2 rounded">
+          <p className="text-gray-700">{answer}</p>
+        </div>
+      )}
     </div>  
   )
 

@@ -1,10 +1,11 @@
-// content.js
 (function () {
   const urlParams = new URLSearchParams(window.location.search);
   const videoId = urlParams.get("v");
+  console.log("Content script loaded, videoId:", videoId);
 
-  if (videoId) {
-    chrome.runtime.sendMessage({ videoId });
-    console.log("Sent video ID from content.js:", videoId);
-  }
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg.type === "GET_VIDEO_ID") {
+      sendResponse({ videoId });
+    }
+  });
 })();
