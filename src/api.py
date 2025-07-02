@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 from schemas import TranscriptRequest, UserCredentials,TranscriptOut
 from models import User, Transcript
 from utils import hash
-from oauth2 import get_current_user
-from typing import List
+from oauth2 import get_current_user,get_optional_current_user
+from typing import List,Optional
 
 load_dotenv()
 
@@ -34,19 +34,26 @@ def home():
     return {"message": "Welcome to the YouTube Transcript API"}
 
 @app.post("/ask" )
-def ask_transcript(request: TranscriptRequest, session_id: str,  db: Session = Depends(get_db)):
-    
+def ask_transcript(request: TranscriptRequest, session_id: str,user_id: Optional[int] = Depends(get_optional_current_user),   db: Session = Depends(get_db)):
+    video_title = request.video_title
+    channel_name = request.channel_name
     id = request.video_id
     print(f"Received video ID: {id}")
     query = request.query
     if (id != ""):
-        answer = run_rag_pipeline(id, query, db=db, session_id=session_id)
+        answer = run_rag_pipeline(id, user_id=user_id, query=query, db=db, session_id=session_id, video_title=video_title, channel_name=channel_name)
         return {"answer": answer}
     else:
         raise HTTPException(status_code=400, detail="Invalid video ID")
 
 @app.patch("/save/{video_id}", status_code=status.HTTP_200_OK)
 def save_transcript(video_id:str, user_id: int = Depends(get_current_user), db:Session = Depends(get_db)):
+    
+   
+    # move the embeddings from vector databsase
+    old_namespace = f"{video_id}_temp"
+    new_namespace = f"{user_id}:{video_id}"
+    move_embeddings(old_namespace, new_namespace)
     transcript = db.query(Transcript).filter(Transcript.video_id == video_id,
                                              Transcript.is_saved == False).first() 
     if not transcript:
@@ -55,10 +62,6 @@ def save_transcript(video_id:str, user_id: int = Depends(get_current_user), db:S
     transcript.user_id = str(user_id)
     db.commit()
     db.refresh(transcript)
-    # move the embeddings from vector databsase
-    old_namespace = f"{video_id}_temp"
-    new_namespace = f"{user_id}:{video_id}"
-    move_embeddings(old_namespace, new_namespace)
     return {"message": "Transcript saved successfully", "transcript_id": transcript.id}
 
 @app.post("/signup", status_code=status.HTTP_201_CREATED)
@@ -80,13 +83,14 @@ def signup(user_credentials: UserCredentials, db: Session = Depends(get_db)):
 
 @app.get("/transcripts", response_model=List[TranscriptOut], status_code=status.HTTP_200_OK)
 def get_transcripts(user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
-    transcripts = db.query(Transcript).filter(Transcript.user_id == user_id).all()
+    transcripts = db.query(Transcript).filter(Transcript.user_id == str(user_id)).all()
     return transcripts  
+
 @app.get("/transcripts/{video_id}", response_model=TranscriptOut, status_code=status.HTTP_200_OK)
 def get_single_saved_transcript(video_id: str, user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
     transcript = db.query(Transcript).filter(
         Transcript.video_id == video_id,
-        Transcript.user_id == user_id
+        Transcript.user_id == str(user_id)
     ).first()
     if not transcript:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transcript not found")

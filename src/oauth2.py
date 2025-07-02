@@ -37,3 +37,22 @@ def get_current_user(token:str = Depends(oauth2_scheme)):
           headers={"WWW-Authenticate": "Bearer"},
       )
       return verify_token(token, credentials_exception)
+  
+
+
+from fastapi import Request
+
+def get_optional_current_user(request: Request):
+    auth: str = request.headers.get("Authorization")
+    if not auth or not auth.lower().startswith("bearer "):
+        return None
+    token = auth.split(" ", 1)[1]
+    try:
+        credentials_exception = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        return verify_token(token, credentials_exception)
+    except HTTPException:
+        return None

@@ -11,6 +11,8 @@ from pinecone import Pinecone
 from langchain_pinecone import PineconeVectorStore
 from sqlalchemy.orm import Session
 import json
+from models import Transcript
+import time
 
 os.environ["GEMINI_API_KEY"] = os.getenv("GEMINI_API_KEY")
 
@@ -43,19 +45,31 @@ llm = GoogleGenerativeAI(
 )
 
 # ✅ Main RAG function
-def run_rag_pipeline(video_id: str, query: str, db: Session, session_id: str) -> str:
+def run_rag_pipeline(video_id: str, user_id: int, query: str, db: Session, session_id: str, video_title: str, channel_name: str) -> str:
     index_name = "yt-transcript"
-    namespace = f"{video_id}_temp"
+    use_user_namespace = False
+    if user_id:
+        transcript = db.query(Transcript).filter(
+            Transcript.video_id == video_id,
+            Transcript.user_id == str(user_id),
+            Transcript.is_saved == True
+        ).first()
+        if transcript:
+            use_user_namespace = True
+
+    if use_user_namespace:
+        namespace = f"{user_id}:{video_id}"
+    else:
+        namespace = f"{video_id}_temp"
+
     pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
     index = pc.Index(index_name)
     stats = index.describe_index_stats()
     already_indexed = namespace in stats.get("namespaces", {})
-
+    print(already_indexed)
     if not already_indexed:
         print(f"Indexing transcript for video ID: {video_id}")
         full_transcript = get_transcript(video_id)
-        # if not full_transcript:
-        #     return "Transcript not available for this video."
         from langchain_core.documents import Document
         docs = [Document(page_content=full_transcript)]
 
@@ -68,37 +82,58 @@ def run_rag_pipeline(video_id: str, query: str, db: Session, session_id: str) ->
         for i, chunk in enumerate(chunks):
             vector_id = f"{video_id}_chunk_{i}"
             vector_ids.append(vector_id)
+            chunk.metadata = chunk.metadata or {}
+            chunk.metadata["text"] = chunk.page_content
+            chunk.metadata["type"] = "chunk"
             vectors.append((vector_id, embedding_model.embed_query(chunk.page_content), chunk.metadata))
 
-        index = pc.Index(index_name)
         index.upsert(vectors=vectors, namespace=namespace)
 
         # Upsert the "__index__" vector
-        index_vector = ("__index__", [1.0] + [0.0]*767, {"vector_ids": json.dumps(vector_ids)})
+        index_vector = ("__index__", [1.0] + [0.0]*767, {"vector_ids": json.dumps(vector_ids), "type": "index"})
         index.upsert(vectors=[index_vector], namespace=namespace)
-        
+
         from services.transcript_ops import create_temp_transcript
-        create_temp_transcript(db, session_id, video_id)
+        create_temp_transcript(db, session_id, video_id, video_title, channel_name)
         
     vectorstore = PineconeVectorStore(
-        embedding=embedding_model,
-        index_name=index_name,
-        namespace=namespace,
-    )
-    normal_retriever = vectorstore.as_retriever(search_type='mmr',k=4)
-        
+    embedding=embedding_model,
+    index_name=index_name,
+    namespace=namespace,
+)
+      
+    normal_retriever = vectorstore.as_retriever(
+        search_type='mmr',
+        search_kwargs={"k": 4, "filter": {"type": "chunk"}}
+)
+
     summarize_retriever = MultiQueryRetriever.from_llm(
-        retriever=vectorstore.as_retriever(search_type="mmr", k=10),
+        retriever=vectorstore.as_retriever(
+            search_type="mmr",
+            search_kwargs={"k": 10, "filter": {"type": "chunk"}}
+        ),
         llm=llm
     )
 
     def retrieve_context(inputs):
         q = inputs["query"]
-        if any(kw in q.lower() for kw in ["summarize", "overview", "summary","all", "complete"]):
+        if any(kw in q.lower() for kw in ["summarize", "overview", "summary", "all", "complete"]):
             relevant_docs = summarize_retriever.invoke(q)
-            return " ".join(doc.page_content for doc in relevant_docs)
-        relevant_docs = normal_retriever.invoke(q)
-        return " ".join(doc.page_content for doc in relevant_docs)
+            if not relevant_docs:
+                time.sleep(1)
+                relevant_docs = summarize_retriever.invoke(q)
+            print(relevant_docs)
+            context = " ".join(doc.page_content for doc in relevant_docs)
+            print(f"\n[DEBUG] Context for query '{q}':\n{context[:500]}{'...' if len(context) > 500 else ''}\n")
+        else:
+            relevant_docs = normal_retriever.invoke(q)
+            if not relevant_docs:
+                time.sleep(1)
+                relevant_docs = summarize_retriever.invoke(q)
+            print(relevant_docs)
+            context = " ".join(doc.page_content for doc in relevant_docs)
+            print(f"\n[DEBUG] Context for query '{q}':\n{context[:500]}{'...' if len(context) > 500 else ''}\n")  # Print first 500 chars for readability
+        return context
 
     parallel_chain = RunnableParallel({
         'context': RunnableLambda(retrieve_context),
@@ -109,7 +144,6 @@ def run_rag_pipeline(video_id: str, query: str, db: Session, session_id: str) ->
     final_chain = parallel_chain | prompt | llm | parser
 
     return final_chain.invoke({"query": query})
-
 def delete_embeddings(namespace):
     index_name = "yt-transcript"
     pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
@@ -123,6 +157,7 @@ def move_embeddings(old_namespace, new_namespace):
     pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
     index = pc.Index(index_name)
     stats = index.describe_index_stats()
+    
     print(f"Namespaces before move: {stats.get('namespaces', {}).keys()}")
     if old_namespace not in stats.get("namespaces", {}):
         print(f"No vectors found in namespace: {old_namespace}")
@@ -138,11 +173,17 @@ def move_embeddings(old_namespace, new_namespace):
         vectors = index.fetch(ids=vector_ids, namespace=old_namespace).vectors
         print(f"Fetched {len(vectors)} vectors from {old_namespace}")
 
-        upsert_data = [(k, v.values, getattr(v, "metadata", {})) for k, v in vectors.items()]
+        upsert_data = []
+        for k, v in vectors.items():
+            metadata = getattr(v, "metadata", {}) or {}
+            if k == "__index__":
+                metadata["type"] = "index"
+            else:
+                metadata["type"] = "chunk"
+            upsert_data.append((k, v.values, metadata))
         print(f"Upserting {len(upsert_data)} vectors to {new_namespace}")
 
         index.upsert(vectors=upsert_data, namespace=new_namespace)
-
 
     except Exception as e:
         print(f"Error occurred while moving embeddings: {e}")
