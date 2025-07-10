@@ -1,13 +1,13 @@
 from fastapi import  FastAPI,HTTPException,status
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from services.rag import run_rag_pipeline,move_embeddings
+from services.rag import run_rag_pipeline,move_embeddings,transcribe_and_store
 from services.transcript_ops import create_temp_transcript
 from dotenv import load_dotenv
 from database import SessionLocal,get_db
 from fastapi import Depends
 from sqlalchemy.orm import Session
-from schemas import TranscriptRequest, UserCredentials,TranscriptOut
+from schemas import AskRequest, UserCredentials,TranscriptOut,TranscribeRequest
 from models import User, Transcript
 from utils import hash
 from oauth2 import get_current_user,get_optional_current_user
@@ -33,15 +33,17 @@ app.add_middleware(
 def home():
     return {"message": "Welcome to the YouTube Transcript API"}
 
+@app.post("/transcribe")
+def transcribe_video(request:TranscribeRequest,session_id: str,db: Session = Depends(get_db)):
+    print(f"Received video ID: {request.video_id}")
+    transcribe_and_store(request.video_id,db,session_id,request.video_title,request.channel_name)
+    return {"message": "Transcription started successfully"}
 @app.post("/ask" )
-def ask_transcript(request: TranscriptRequest, session_id: str,user_id: Optional[int] = Depends(get_optional_current_user),   db: Session = Depends(get_db)):
-    video_title = request.video_title
-    channel_name = request.channel_name
+def ask_transcript(request: AskRequest,user_id: Optional[int] = Depends(get_optional_current_user),   db: Session = Depends(get_db)):
     id = request.video_id
-    print(f"Received video ID: {id}")
     query = request.query
     if (id != ""):
-        answer = run_rag_pipeline(id, user_id=user_id, query=query, db=db, session_id=session_id, video_title=video_title, channel_name=channel_name)
+        answer = run_rag_pipeline(id, user_id=user_id, query=query, db=db)
         return {"answer": answer}
     else:
         raise HTTPException(status_code=400, detail="Invalid video ID")

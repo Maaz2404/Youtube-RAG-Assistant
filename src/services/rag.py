@@ -44,23 +44,9 @@ llm = GoogleGenerativeAI(
     api_key=os.getenv("GEMINI_API_KEY")
 )
 
-# ✅ Main RAG function
-def run_rag_pipeline(video_id: str, user_id: int, query: str, db: Session, session_id: str, video_title: str, channel_name: str) -> str:
+def transcribe_and_store(video_id: str, db: Session, session_id: str, video_title: str, channel_name: str):
     index_name = "yt-transcript"
-    use_user_namespace = False
-    if user_id:
-        transcript = db.query(Transcript).filter(
-            Transcript.video_id == video_id,
-            Transcript.user_id == str(user_id),
-            Transcript.is_saved == True
-        ).first()
-        if transcript:
-            use_user_namespace = True
-
-    if use_user_namespace:
-        namespace = f"{user_id}:{video_id}"
-    else:
-        namespace = f"{video_id}_temp"
+    namespace = f"{video_id}_temp"
 
     pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
     index = pc.Index(index_name)
@@ -82,9 +68,7 @@ def run_rag_pipeline(video_id: str, user_id: int, query: str, db: Session, sessi
         for i, chunk in enumerate(chunks):
             vector_id = f"{video_id}_chunk_{i}"
             vector_ids.append(vector_id)
-            chunk.metadata = chunk.metadata or {}
-            chunk.metadata["text"] = chunk.page_content
-            chunk.metadata["type"] = "chunk"
+            chunk.metadata = {"text": chunk.page_content, "type": "chunk"}
             vectors.append((vector_id, embedding_model.embed_query(chunk.page_content), chunk.metadata))
 
         index.upsert(vectors=vectors, namespace=namespace)
@@ -95,7 +79,37 @@ def run_rag_pipeline(video_id: str, user_id: int, query: str, db: Session, sessi
 
         from services.transcript_ops import create_temp_transcript
         create_temp_transcript(db, session_id, video_id, video_title, channel_name)
-        
+        return {"message": "Transcript indexed successfully."}
+    else:
+        return {"message": "Transcript already indexed."}
+
+# ✅ Main RAG function
+def run_rag_pipeline(video_id: str, user_id: int, query: str, db: Session) -> str:
+    
+
+    index_name = "yt-transcript"
+    use_user_namespace = False
+    if user_id:
+        transcript = db.query(Transcript).filter(
+            Transcript.video_id == video_id,
+            Transcript.user_id == str(user_id),
+            Transcript.is_saved == True
+        ).first()
+        if transcript:
+            use_user_namespace = True
+
+    if use_user_namespace:
+        namespace = f"{user_id}:{video_id}"
+    else:
+        namespace = f"{video_id}_temp" 
+    
+    pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+    index = pc.Index(index_name)
+    stats = index.describe_index_stats()
+
+    if namespace not in stats.get("namespaces", {}):
+        raise ValueError(f"Transcript not yet indexed for video_id: {video_id}. Please transcribe first.")    
+           
     vectorstore = PineconeVectorStore(
     embedding=embedding_model,
     index_name=index_name,

@@ -3,11 +3,9 @@ from typing import Optional
 from fastapi import Depends
 
 
-class TranscriptRequest(BaseModel):
+class AskRequest(BaseModel):
     video_id: str = Field(..., description="YouTube video ID")
     query: str = Field(..., description="User query related to the video transcript")
-    video_title: str = Field(..., description="Title of the YouTube video")
-    channel_name: str = Field(..., description="Name of the YouTube channel")
     
 class UserCredentials(BaseModel):
      email: EmailStr = Field(..., description="User email")
@@ -37,3 +35,7 @@ class TranscriptOut(BaseModel):
     class Config:
         from_attributes = True
         
+class TranscribeRequest(BaseModel):
+    video_id: str = Field(..., description="YouTube video ID")
+    video_title: str = Field(..., description="Title of the YouTube video")
+    channel_name: str = Field(..., description="Name of the YouTube channel")
