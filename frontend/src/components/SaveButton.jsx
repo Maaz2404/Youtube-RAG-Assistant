@@ -1,6 +1,8 @@
 import axios from "axios";
 import { useState } from "react";
 
+const BASE_URL = import.meta.env.VITE_BASE_URL || "http://127.0.0.1:8000/";
+
 const SaveButton = ({ video_id, onSaved, disabled }) => {
   const [loading, setLoading] = useState(false);
   return (
@@ -14,7 +16,7 @@ const SaveButton = ({ video_id, onSaved, disabled }) => {
         try {
           setLoading(true);
           await axios.patch(
-            `http://127.0.0.1:8000/save/${video_id}`,
+            `${BASE_URL}save/${video_id}`,
             { video_id },
             {
               headers: {

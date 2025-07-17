@@ -45,7 +45,7 @@ const App = () => {
     if (loggedIn) {
       const token = localStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      axios.get('http://127.0.0.1:8000/transcripts', { headers })
+      axios.get(`${BASE_URL}transcripts`, { headers })
         .then((response) => {
           setTranscripts(response.data);
         })
@@ -104,7 +104,7 @@ const App = () => {
       const params = new URLSearchParams();
       params.append("username", loginForm.email);
       params.append("password", loginForm.password);
-      const res = await axios.post("http://127.0.0.1:8000/login", params, {
+      const res = await axios.post(`${BASE_URL}login`, params, {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
       });
       localStorage.setItem("token", res.data.access_token);
@@ -120,7 +120,7 @@ const App = () => {
     e.preventDefault();
     setAuthError("");
     try {
-      await axios.post("http://127.0.0.1:8000/signup", {
+      await axios.post(`${BASE_URL}signup`, {
         email: signupForm.email,
         password: signupForm.password,
       });
