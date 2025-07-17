@@ -1,6 +1,8 @@
 import axios from "axios";
+import { useState } from "react";
 
-const SaveButton = ({ video_id, onSaved }) => {
+const SaveButton = ({ video_id, onSaved, disabled }) => {
+  const [loading, setLoading] = useState(false);
   return (
     <button
       className="w-full bg-red-600 hover:bg-red-700 text-white py-2 mt-1 rounded"
@@ -10,6 +12,7 @@ const SaveButton = ({ video_id, onSaved }) => {
           return;
         }
         try {
+          setLoading(true);
           await axios.patch(
             `http://127.0.0.1:8000/save/${video_id}`,
             { video_id },
@@ -23,8 +26,11 @@ const SaveButton = ({ video_id, onSaved }) => {
           onSaved();
         } catch (error) {
           console.error(error);
+        } finally{
+          setLoading(false);
         }
       }}
+      disabled={disabled || loading}
     >
       Save Transcript
     </button>

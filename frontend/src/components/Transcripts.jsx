@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const Transcripts = ({ loggedIn, transcripts }) => {
+const Transcripts = ({ loggedIn, transcripts, onLoad }) => {
     const [hidden, setHidden] = useState(true);
 
     return (
@@ -17,22 +17,34 @@ const Transcripts = ({ loggedIn, transcripts }) => {
                     {hidden ? "View Transcripts" : "Hide Transcripts"}
                 </button>
             </div>
-            {/* Cards in normal flow, shown only when not hidden */}
+
+            {/* Transcript list */}
             {!hidden && loggedIn && (
-                <div className="w-full max-h-40 overflow-y-auto bg-white shadow rounded-b-lg flex flex-col items-center mb-12">
-                    {transcripts.length === 0 && (
-                        <div className="p-4 text-gray-500">No transcripts found.</div>
+                <div className="w-full max-h-52 overflow-y-auto bg-white shadow rounded-b-lg px-3 py-2 mb-12">
+                    {transcripts.length === 0 ? (
+                        <div className="p-4 text-gray-500 text-sm text-center">No transcripts found.</div>
+                    ) : (
+                        transcripts.map((transcript, index) => (
+                            <div
+                                key={index}
+                                className="bg-gray-100 rounded-md p-3 mb-3 w-full shadow-sm"
+                            >
+                                <div className="text-sm font-semibold text-gray-800 truncate">
+                                    {transcript.video_title}
+                                </div>
+                                <div className="text-xs text-gray-600 truncate">{transcript.channel_name}</div>
+
+                                <div className="mt-2 flex justify-end">
+                                    <button
+                                        onClick={() => onLoad(transcript.video_id)}
+                                        className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors duration-150"
+                                    >
+                                        Load
+                                    </button>
+                                </div>
+                            </div>
+                        ))
                     )}
-                    {transcripts.map((transcript, index) => (
-                        <div
-                            key={index}
-                            className="w-[95%] bg-gray-100 rounded-lg p-3 my-2 shadow flex flex-col"
-                            style={{ minHeight: "60px" }}
-                        >
-                            <div className="font-bold text-sm text-gray-800">{transcript.video_title}</div>
-                            <div className="text-xs text-gray-600">{transcript.channel_name}</div>
-                        </div>
-                    ))}
                 </div>
             )}
         </>
