@@ -12,7 +12,7 @@ from models import User, Transcript
 from utils import hash
 from oauth2 import get_current_user,get_optional_current_user
 from typing import List,Optional
-
+import os
 load_dotenv()
 
 
@@ -104,7 +104,7 @@ app.include_router(router,tags=["auth"])
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="localhost", port=8000)
-    
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
     
     
