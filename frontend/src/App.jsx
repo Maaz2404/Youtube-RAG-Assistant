@@ -6,6 +6,8 @@ import TranscribeButton from "./components/TranscribeButton";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 const BASE_URL = import.meta.env.VITE_BASE_URL || "http://127.0.0.1:8000/";
+console.log("BASE_URL ===>", BASE_URL);
+
 
 const App = () => {
   const [videoId, setVideoId] = useState("");
