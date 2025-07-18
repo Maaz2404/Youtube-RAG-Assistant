@@ -23,14 +23,17 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8000", 
-        "chrome-extension://cfjbklapkneciahbdkknmgplgjhfoafb"],
+    allow_origins=["http://localhost:8000",
+                   "http://127.0.0.1:8000", 
+        "chrome-extension://cfjbklapkneciahbdkknmgplgjhfoafb",
+        "https://youtube-rag-assistant.onrender.com/"],
+    
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-@app.get("/")
+@app.get("/")  
 def home():
     return {"message": "Welcome to the YouTube Transcript API"}
 

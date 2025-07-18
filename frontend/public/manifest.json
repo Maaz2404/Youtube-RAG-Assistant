@@ -3,7 +3,8 @@
   "name": "YouTube RAG Assistant",
   "version": "1.0",
   "permissions": ["scripting", "tabs"],
-  "host_permissions": ["https://www.youtube.com/*"],
+  "host_permissions": ["https://www.youtube.com/*","https://youtube-rag-assistant.onrender.com/*"],
+
 
   "action": {
     "default_popup": "index.html"
